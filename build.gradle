@@ -1,0 +1,75 @@
+// Shared setup for the server-plugin modules (paper, velocity, bungee). The mod modules (fabric, neoforge) set
+// themselves up, since their Gradle plugins (Loom, ModDevGradle) manage Java and dependencies their own way.
+// The in-game text lives in the Guildora monorepo's packages/i18n, where this repo is a submodule (plugins/oranotifier).
+// Building on its own: pass -Pi18nDir=<path to packages/i18n>.
+def i18nDir = rootProject.file(findProperty('i18nDir') ?: '../../packages/i18n')
+if (!new File(i18nDir, 'locales/zh-TW/plugin.yml').isFile()) {
+    throw new GradleException("OraNotifier needs the translations in ${i18nDir}. Build it from the Guildora monorepo (plugins/oranotifier), or pass -Pi18nDir=<path to packages/i18n>.")
+}
+
+// shortcut: reads only comments, `section:` lines and `key: value` / `key: "value"` lines (all plugin.yml and
+// locales.yml use), with 2-space indents; switch to SnakeYAML if those files ever need more YAML than that.
+def readYaml = { File f ->
+    def out = [:]
+    def path = []
+    f.eachLine('UTF-8') { line, n ->
+        if (line.trim().isEmpty() || line.trim().startsWith('#')) return
+        def m = line =~ /^( *)([A-Za-z0-9_-]+):\s*(.*?)\s*$/
+        if (!m.matches() || m.group(1).length() % 2 != 0) throw new GradleException("$f:$n: unsupported YAML: $line")
+        path = path.take(m.group(1).length().intdiv(2)) + m.group(2)
+        def v = m.group(3)
+        if (v.isEmpty()) return
+        out[path.join('.')] = v.startsWith('"') ? new groovy.json.JsonSlurper().parseText("[$v]")[0] : v
+    }
+    out
+}
+
+subprojects {
+    version = rootProject.version
+    group = rootProject.group
+
+    repositories {
+        mavenCentral()
+        maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+    }
+
+    plugins.withId('java') {
+        sourceSets.main.java.srcDir rootProject.file('common/src/main/java')
+        base.archivesName = "OraNotifier-${project.name}"
+        tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+
+        // In-game / console messages come from packages/i18n (PLAN §12): every locales/<locale>/plugin.yml, merged
+        // over zh-TW, becomes lang/<mcLang>.properties in the jar, which Lang.java loads.
+        def langTask = tasks.register('generateLang') {
+            def outDir = layout.buildDirectory.dir('generated/lang')
+            inputs.files(fileTree(new File(i18nDir, 'locales')) { include '*/plugin.yml' }).withPropertyName('messages')
+            inputs.file(new File(i18nDir, 'locales.yml')).withPropertyName('locales')
+            outputs.dir(outDir)
+            doLast {
+                def dir = new File(outDir.get().asFile, 'lang')
+                dir.deleteDir()
+                dir.mkdirs()
+                def base = readYaml(new File(i18nDir, 'locales/zh-TW/plugin.yml'))
+                readYaml(new File(i18nDir, 'locales.yml')).each { key, mcLang ->
+                    def m = key =~ /^locales\.([^.]+)\.mcLang$/
+                    if (!m.matches()) return
+                    def own = new File(i18nDir, "locales/${m.group(1)}/plugin.yml")
+                    def merged = base + (own.exists() ? readYaml(own) : [:])
+                    new File(dir, "${mcLang}.properties").setText(
+                            merged.collect { k, v -> "$k=" + v.replace('\\', '\\\\').replace('\n', '\\n') }.join('\n') + '\n', 'UTF-8')
+                }
+            }
+        }
+        sourceSets.main.resources.srcDir(langTask)
+    }
+}
+
+configure([project(':paper'), project(':velocity'), project(':bungee')]) {
+    apply plugin: 'java'
+    java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+    tasks.withType(JavaCompile).configureEach { options.release = 17 }
+    processResources {
+        inputs.property 'version', project.version
+        filesMatching(['plugin.yml', 'bungee.yml']) { expand version: project.version }
+    }
+}

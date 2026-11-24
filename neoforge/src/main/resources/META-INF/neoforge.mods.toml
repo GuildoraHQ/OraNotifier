@@ -1,0 +1,18 @@
+modLoader="javafml"
+loaderVersion="[1,)"
+license="MIT"
+
+[[mods]]
+modId="oranotifier"
+version="${version}"
+displayName="OraNotifier"
+authors="Mcora"
+displayURL="https://mcora.net/docs/minecraft/votifier"
+description='''Delivers Mcora (mcora.net) votes to this server. No open port needed.'''
+
+[[dependencies.oranotifier]]
+modId="minecraft"
+type="required"
+versionRange="[${minecraft_version}]"
+ordering="NONE"
+side="SERVER"

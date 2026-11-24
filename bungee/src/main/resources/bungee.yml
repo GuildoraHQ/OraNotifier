@@ -1,0 +1,6 @@
+name: OraNotifier
+version: '${version}'
+main: net.mcora.oranotifier.bungee.OraBungee
+author: Mcora
+description: Delivers Mcora (mcora.net) votes. No open port needed.
+softDepends: [NuVotifier]

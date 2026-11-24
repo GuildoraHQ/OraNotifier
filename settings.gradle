@@ -1,0 +1,18 @@
+// OraNotifier: one Gradle build for every platform. Each module compiles ../common's sources into its own jar
+// (no shading needed). Build all: ./gradlew build  → <module>/build/libs/OraNotifier-<platform>-<version>.jar
+pluginManagement {
+    repositories {
+        maven { name = 'Fabric'; url = 'https://maven.fabricmc.net/' }
+        maven { name = 'NeoForged'; url = 'https://maven.neoforged.net/releases' }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    // Downloads the JDK a module asks for (Java 25 for the 26.x mods) when it isn't installed.
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'oranotifier'
+include 'paper', 'velocity', 'bungee', 'fabric', 'neoforge'

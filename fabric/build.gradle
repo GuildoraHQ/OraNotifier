@@ -1,0 +1,19 @@
+// Fabric server mod (needs Fabric API). Minecraft ${minecraft_version}; built with Fabric Loom.
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${fabric_loom}"
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${fabric_loader}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api}"
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
+tasks.withType(JavaCompile).configureEach { options.release = 25 }
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'minecraft_version', minecraft_version
+    filesMatching('fabric.mod.json') { expand version: project.version, minecraft_version: minecraft_version }
+}

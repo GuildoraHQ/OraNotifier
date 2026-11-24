@@ -1,0 +1,16 @@
+name: OraNotifier
+version: '${version}'
+main: net.mcora.oranotifier.paper.OraPaper
+api-version: '1.20'
+description: Delivers Mcora (mcora.net) votes to this server. No open port needed.
+website: https://mcora.net/docs/minecraft/votifier
+authors: [Mcora]
+softdepend: [Votifier, NuVotifier]
+commands:
+  mcora:
+    description: Mcora 玩家紀錄：/mcora hide 隱藏你的遊戲紀錄，/mcora link <連結碼> 連結你的 Mcora 帳號
+    usage: /mcora hide | /mcora link <code>
+permissions:
+  oranotifier.players.ignore:
+    description: Never report this player's play time to Mcora (staff, vanish).
+    default: false
