@@ -32,3 +32,7 @@ The in-game messages are translated on the Guildora translation site and live in
 To build this repository on its own, point it at a copy of the translations: `./gradlew build -Pi18nDir=/path/to/packages/i18n`.
 
 Needs Java 21 (server plugins, built for Java 17 servers) and Java 25 (Fabric and NeoForge); Gradle downloads them if missing.
+
+## License
+
+[MIT](LICENSE)
