@@ -35,6 +35,8 @@ public final class OraCore {
     /** Seconds until the next poll: the configured interval, longer after errors (up to 5 minutes). */
     private int delay;
     private String lastProblem;
+    /** The maintenance message last logged (PLAN §58.3), so a window is logged once, and its end once. */
+    private String lastMaintenance;
     /** Null unless players.report=true. */
     private volatile PlayerTracker tracker;
 
@@ -171,6 +173,18 @@ public final class OraCore {
                     platform.runOnMain(() -> platform.message(to, text));
                 }
             }
+        }
+        // While Mcora is under maintenance for OraNotifier it sends no votes (they stay queued) and says why.
+        if (res.has("maintenance") && res.get("maintenance").isJsonObject()) {
+            JsonObject m = res.getAsJsonObject("maintenance");
+            String msg = m.has("message") && !m.get("message").isJsonNull() && !m.get("message").getAsString().isEmpty() ? m.get("message").getAsString() : "—";
+            if (!msg.equals(lastMaintenance)) platform.info(Lang.t("core.maintenance", "message", msg));
+            lastMaintenance = msg;
+            return;
+        }
+        if (lastMaintenance != null) {
+            platform.info(Lang.t("core.maintenanceOver"));
+            lastMaintenance = null;
         }
         String service = res.has("serviceName") ? res.get("serviceName").getAsString() : "Mcora";
         JsonArray votes = res.getAsJsonArray("votes");
