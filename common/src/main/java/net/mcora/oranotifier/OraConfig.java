@@ -13,6 +13,10 @@ import java.util.List;
 import java.util.Properties;
 
 public final class OraConfig {
+    /** Mcora's API on its own host (Guildora PLAN §63); OraCore falls back to OLD_API while it can't be reached. */
+    public static final String DEFAULT_API = "https://api.guildora.net";
+    public static final String OLD_API = "https://mcora.net";
+
     static final String DEFAULT = String.join("\n",
             "# OraNotifier: delivers Mcora votes to this server. https://mcora.net/docs/minecraft/votifier",
             "#",
@@ -55,8 +59,8 @@ public final class OraConfig {
             "# Language of the plugin's messages (Minecraft's codes: zh_tw, zh_hk, zh_cn, ja_jp, ko_kr, en_us).",
             "language=zh_tw",
             "",
-            "# Only change this for testing.",
-            "api=https://mcora.net",
+            "# Only change this for testing. Older configs say https://mcora.net, which keeps working.",
+            "api=" + DEFAULT_API,
             "");
 
     public final String token;
@@ -74,7 +78,7 @@ public final class OraConfig {
 
     private OraConfig(Properties p) {
         token = p.getProperty("token", "").trim();
-        api = p.getProperty("api", "https://mcora.net").trim().replaceAll("/+$", "");
+        api = p.getProperty("api", DEFAULT_API).trim().replaceAll("/+$", "");
         int seconds;
         try {
             seconds = Integer.parseInt(p.getProperty("poll-seconds", "5").trim());

@@ -1,4 +1,4 @@
-// The part shared by every platform: polls POST <api>/api/ora/poll with the token, claims the votes it got with
+// The part shared by every platform: polls POST <api>/api/ora/poll (api.guildora.net by default, mcora.net as a fallback) with the token, claims the votes it got with
 // POST <api>/api/ora/claim, then runs each on the server thread (reward commands + NuVotifier's event).
 // The plugin only makes outgoing HTTPS requests, so the server needs no open port (unlike Votifier).
 // With players.report=true the same poll also carries play sessions (PlayerTracker, docs/mc-players.md).
@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 public final class OraCore {
-    public static final String VERSION = "1.1.0";
+    public static final String VERSION = "1.2.0";
 
     private final Platform platform;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
@@ -222,8 +222,33 @@ public final class OraCore {
         }
     }
 
+    /** While api.guildora.net can't be reached (DNS not there yet, an outage), mcora.net is used until this time. */
+    private volatile long fallbackUntil = 0;
+
     private JsonObject post(String path, JsonObject body) throws Exception {
-        HttpRequest req = HttpRequest.newBuilder(URI.create(config.api + path))
+        boolean onDefault = OraConfig.DEFAULT_API.equals(config.api);
+        String base = onDefault && System.currentTimeMillis() < fallbackUntil ? OraConfig.OLD_API : config.api;
+        HttpResponse<String> res;
+        try {
+            res = send(base, path, body);
+            if (base.equals(OraConfig.DEFAULT_API) && unreachable(res)) throw new java.io.IOException("HTTP " + res.statusCode());
+        } catch (java.io.IOException e) {
+            if (!base.equals(OraConfig.DEFAULT_API)) throw e;
+            // Same API on the old host; try the new one again in 10 minutes.
+            fallbackUntil = System.currentTimeMillis() + 10 * 60_000L;
+            res = send(OraConfig.OLD_API, path, body);
+        }
+        return read(res);
+    }
+
+    /** No JSON and a status that means the request never reached the API (no route yet, Cloudflare can't reach it). */
+    private static boolean unreachable(HttpResponse<String> res) {
+        int s = res.statusCode();
+        return !res.body().trim().startsWith("{") && (s == 404 || s == 502 || s == 503 || (s >= 520 && s <= 530));
+    }
+
+    private HttpResponse<String> send(String base, String path, JsonObject body) throws Exception {
+        HttpRequest req = HttpRequest.newBuilder(URI.create(base + path))
                 .timeout(Duration.ofSeconds(15))
                 .header("Authorization", "Bearer " + config.token)
                 .header("Content-Type", "application/json")
@@ -231,7 +256,10 @@ public final class OraCore {
                 .header("User-Agent", "OraNotifier/" + VERSION + " (" + platform.name() + ")")
                 .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
                 .build();
-        HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString());
+        return http.send(req, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private JsonObject read(HttpResponse<String> res) throws Exception {
         if (res.statusCode() == 401) throw new Problem(Lang.t("api.badToken"), true);
         JsonObject json;
         try {
